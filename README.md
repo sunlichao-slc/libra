@@ -1,35 +1,35 @@
 # Black-Box Embedding Inversion Attack on Vector Databases
 
-This repository implements **LIBRA**, a black-box image embedding inversion framework for analyzing privacy leakage in vector databases.
+This repository provides the implementation of **LIBRA**, a black-box image embedding inversion framework for evaluating privacy leakage in vector databases.
 
-Given only embedding queries (no access to target model parameters), LIBRA trains a conditional diffusion model in latent space and reconstructs semantically consistent images from target embeddings.
+Given query access to an embedding model (without model parameters), LIBRA trains an embedding-conditioned latent diffusion model and reconstructs semantically consistent images from target embeddings.
 
-> For research use only. Evaluate privacy risks only on authorized data/models.
+> For research use only. Evaluate privacy risks only on authorized data and models.
 
 ## Method Overview
 
-Modern vector databases store embeddings instead of raw images. LIBRA studies whether those embeddings can still leak sensitive visual information.
+Vector databases typically store dense embeddings rather than raw images. LIBRA investigates whether these embeddings still leak semantic information about the original samples.
 
-![LIBRA framework](franework.png)
+![LIBRA framework](docs/images/franework.png)
 
 ### Stage 1: Training
-- Query the target encoder on an auxiliary dataset to obtain image embeddings.
-- Train an embedding-conditioned `UNet` denoiser.
-- Perform diffusion in VQ latent space for better efficiency.
+- Query the target encoder on an auxiliary dataset to collect image embeddings.
+- Train an embedding-conditioned `UNet` denoiser in VQ latent space.
+- Learn to predict noise under diffusion timesteps with embedding guidance.
 
 ### Stage 2: Recovery
 - Input a target embedding from the vector database.
-- Run reverse diffusion conditioned on the embedding.
-- Decode latent output with VQ-VAE to obtain reconstructed images.
+- Run reverse diffusion conditioned on that embedding.
+- Decode the recovered latent through VQ-VAE to obtain reconstructed images.
 
 ## Key Features
 
-- Black-box attack setting (no target model internals required).
-- Multiple encoders: `clip`, `dinov2`, `resnet`.
-- Unified evaluation script with `MSE`, `PSNR`, `SSIM`, `LPIPS`, and optional semantic cosine (`CLIP` / `DINO`).
-- Config-driven workflow for quick dataset switching.
+- Black-box threat model (no access to target model internals).
+- Multiple supported encoders: `clip`, `dinov2`, `resnet`.
+- Unified evaluation script for `MSE`, `PSNR`, `SSIM`, `LPIPS`, and optional semantic cosine metrics.
+- Config-driven workflow for reproducible cross-dataset experiments.
 
-## Project Layout
+## Repository Structure
 
 ```text
 .
@@ -52,17 +52,22 @@ Modern vector databases store embeddings instead of raw images. LIBRA studies wh
 └── outputs/                  # checkpoints / reconstructions / metrics
 ```
 
+## Required Model Checkpoints
+
+- CLIP ViT-B/32: <https://huggingface.co/openai/clip-vit-base-patch32>
+- DINOv2 Base: <https://huggingface.co/facebook/dinov2-base>
+
 ## Quick Start (CIFAR-100)
 
-### 1) Install
+### 1) Environment Setup
 
 ```bash
-conda create -n rar-diffusion python=3.10 -y
-conda activate rar-diffusion
+conda create -n libra python=3.10 -y
+conda activate libra
 pip install -e .
 ```
 
-### 2) Prepare config
+### 2) Prepare Configuration
 
 ```bash
 cp configs/config.example.yaml configs/config.yaml
@@ -95,13 +100,13 @@ models:
   vqvae_subfolder: "vqvae"
 ```
 
-### 3) Extract embeddings (once)
+### 3) Extract Embeddings (Run Once)
 
 ```bash
 # uses encoder.type from config.yaml
 python scripts/encode/extract_embeddings.py
 
-# or explicit entrypoints
+# explicit entrypoints
 python scripts/encode/extract_embeddings_clip.py
 python scripts/encode/extract_embeddings_dinov2.py
 python scripts/encode/extract_embeddings_resnet.py
@@ -109,25 +114,25 @@ python scripts/encode/extract_embeddings_resnet.py
 
 Useful flags:
 - `--force` overwrite existing `.npy`
-- `--dry-run` check resolved config/counts only
+- `--dry-run` print resolved config and counts without writing files
 - `--encoder {clip,dinov2,resnet}` override `encoder.type`
 
 Expected CIFAR-100 naming:
 - input image: `images_train/<class>/<stem>.jpg`
 - output embedding: `embeddings_train/<class>/<class>_<stem>.npy`
 
-### 4) Train denoiser
+### 4) Train the Denoiser
 
 ```bash
 python scripts/train/train.py
 # optional: python scripts/train/train.py --config /path/to/config.yaml
 ```
 
-`train.py` validates one embedding sample against `encoder.dim` before training to prevent dimension mismatch.
+Before training starts, `train.py` validates `encoder.dim` against a sample embedding to prevent shape mismatch errors.
 
-### 5) Recover images from embeddings
+### 5) Recover Images from Embeddings
 
-`scripts/recover/recover.py` requires all core inputs explicitly:
+`scripts/recover/recover.py` requires explicit runtime paths:
 
 ```bash
 python scripts/recover/recover.py \
@@ -141,10 +146,10 @@ python scripts/recover/recover.py \
 ```
 
 Notes:
-- `embeddings-dir` should be class folders for CIFAR-style recovery.
-- The script recovers one random embedding per class and also saves comparison grids.
+- `embeddings-dir` should use class-wise folders for CIFAR-style recovery.
+- The script reconstructs one random embedding per class and saves comparison grids.
 
-### 6) Evaluate reconstruction quality
+### 6) Evaluate Reconstruction Quality
 
 ```bash
 python scripts/eval/evaluate.py \
@@ -153,7 +158,7 @@ python scripts/eval/evaluate.py \
   --output outputs/metrics/cifar100.json
 ```
 
-Optional semantic metric:
+Optional semantic metric (example: CLIP cosine):
 
 ```bash
 python scripts/eval/evaluate.py \
@@ -169,26 +174,26 @@ Supported semantic metrics:
 - `dino`
 - `dino-vits16`
 
-## Switching Datasets
+## Switching to Other Datasets
 
-1. Change `dataset:` in `configs/config.yaml` (e.g., `celeba`, `cub200`).
-2. Fill `datasets.<name>` paths.
-3. Set layout:
+1. Update `dataset:` in `configs/config.yaml` (e.g., `celeba`, `cub200`).
+2. Fill corresponding `datasets.<name>` paths.
+3. Set `layout`:
    - `cifar100_class` for class-subfolder trees
    - `flat` for flattened image/embedding trees
-4. Re-run extraction (if needed), training, and recovery with updated paths.
+4. Re-run extraction (if needed), training, and recovery.
 
 ## Config Cheat Sheet
 
 - `dataset`: active dataset key.
 - `datasets.<name>.layout`: data organization mode.
 - `encoder.type`: `clip` / `dinov2` / `resnet`.
-- `encoder.dim`: must match actual embedding output.
-- `train.*`: optimization and output settings.
-- `recover.*`: default recovery output/checkpoint fields.
-- `eval.*`: evaluation defaults.
+- `encoder.dim`: must match the actual embedding dimension.
+- `train.*`: optimization and training outputs.
+- `recover.*`: default recovery fields.
+- `eval.*`: default evaluation fields.
 
-Encoder dimension reference:
+Encoder dimensions:
 - `clip`: `512`
 - `dinov2-base`: `768`
 - `resnet101`: `2048`
@@ -197,16 +202,21 @@ Environment overrides:
 - `RAR_CONFIG`: custom config path
 - `RAR_ROOT`: custom repository root
 
+## Baselines
+
+The implementations of `rMLE`, `LM`, `GLASS`, and `DRRAG` are based on:
+<https://github.com/ntuaislab/DRAG>
+
 ## Common Issues
 
-- `Embedding dim mismatch`: `encoder.dim` and actual `.npy` size differ; regenerate embeddings or fix config.
-- `diffusion_pytorch_model.safetensors not found`: checkpoint format/path mismatch; verify model directory and files.
-- Training interrupted with `SIGHUP`: run with `tmux`/`screen` or detached shell to avoid terminal hangup.
+- `Embedding dim mismatch`: `encoder.dim` differs from `.npy` feature size; regenerate embeddings or update config.
+- `diffusion_pytorch_model.safetensors not found`: checkpoint path/format mismatch; verify the model directory layout.
+- Training interrupted by `SIGHUP`: run with `tmux` / `screen` or a detached shell session.
 
 ## What Is Not Committed
 
-Datasets, checkpoints, logs, and local pretrained weights are excluded by `.gitignore`. Keep your local paths in `configs/config.yaml`.
+Datasets, checkpoints, logs, and local pretrained weights are ignored by `.gitignore`. Keep machine-specific paths in `configs/config.yaml`.
 
 ## Citation
 
-If you use this codebase or any third-party pretrained components, please cite the corresponding original papers and repositories.
+If you use this codebase or third-party pretrained components, please cite the corresponding original papers and repositories.
