@@ -1,0 +1,18 @@
+# Core training
+torch>=2.0.0
+torchvision>=0.15.0
+diffusers>=0.25.0
+accelerate>=0.25.0
+transformers>=4.36.0
+numpy>=1.24.0
+tqdm>=4.66.0
+Pillow>=10.0.0
+matplotlib>=3.7.0
+PyYAML>=6.0
+
+# Metrics & evaluation
+torchmetrics>=1.0.0
+lpips>=0.1.4
+
+# Optional: tensorboard logging (used by accelerate)
+tensorboard>=2.14.0

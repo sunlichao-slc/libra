@@ -1,0 +1,83 @@
+# Copy to configs/config.yaml and edit paths for your machine:
+#   cp configs/config.example.yaml configs/config.yaml
+
+project_root: "."
+rar_config_dir: "third_party/models"
+
+# Active dataset key — switch to celeba / cub200 / lfw etc. and fill that block below
+dataset: cifar100
+
+datasets:
+  # --- CIFAR-100 (default, ready to use after filling paths) ---
+  cifar100:
+    layout: cifar100_class
+    images_train: "/home/wuyuncheng/RAR/cifar/cifar-100-python/cifar100_images_train"
+    embeddings_train: "/home/wuyuncheng/RAR/cifar/cifar-100-python/train_encoder_features"
+    # Held-out embedding for periodic sampling during training
+    test_embedding: "/home/wuyuncheng/RAR/cifar/cifar-100-python/test_encoded_features/apple/image_10.npy"
+    # If you already have local CIFAR-100 exports, for example:
+    # images_train: "cifar/cifar-100-python/cifar100_images_train"
+    # embeddings_train: "cifar/cifar-100-python/train_encoder_features_dinov2"
+    # test_embedding: "cifar/cifar-100-python/test_encoded_features/apple/image_114.npy"
+
+  # --- Other datasets: uncomment paths when switching `dataset:` ---
+  # celeba:
+  #   layout: flat
+  #   images: "data/CelebA/img_align"
+  #   embeddings: "data/embeddings/celeba_dino"
+  #   test_embedding: "data/embeddings/lfw_dino/person/sample.npy"
+  #
+  # cub200:
+  #   layout: flat
+  #   images: "data/CUB_200_2011/images"
+  #   embeddings: "data/embeddings/cub200_clip"
+  #   test_embedding: "data/embeddings/cub200_clip/test.npy"
+
+encoder:
+  # clip | dinov2 | resnet  — or run dedicated scripts under scripts/encode/
+  type: clip
+  # Must match actual encoder output dim:
+  #   clip=512, dinov2-base=768, resnet18=512, resnet101=2048
+  dim: 512
+  # clip / dinov2: local HuggingFace model directory
+  model_dir: "/home/wuyuncheng/RAR/RAR-main/config/clip"
+  # resnet only: resnet18 (512-d) or resnet101 (2048-d, CUB-200 style)
+  resnet_arch: resnet101
+
+models:
+  vqvae: "/home/wuyuncheng/RAR/RAR-main/config/ldm-super"
+  vqvae_subfolder: "vqvae"
+  # Backbone for conditional denoiser: resnet | unet
+  backbone: unet
+
+train:
+  image_size: 256
+  batch_size: 16
+  num_epochs: 1001
+  gradient_accumulation_steps: 4
+  learning_rate: 1.0e-5
+  lr_warmup_steps: 500
+  mixed_precision: fp16
+  save_image_epochs: 1
+  save_model_epochs: 5
+  output_dir: "outputs/checkpoints/cifar100"
+  eval_images_dir: "outputs/eval_images/cifar100"
+  num_workers: 4
+  seed: 0
+
+recover:
+  # Optional explicit checkpoint dir. If empty, defaults to outputs/checkpoints/<dataset>/final
+  checkpoint: ""
+  # Optional explicit embeddings dir. If empty, defaults to datasets.<name>.embeddings(_train)
+  embeddings_dir: ""
+  output_dir: "outputs/recovered/cifar100"
+  # 0 means no limit
+  limit: 0
+
+eval:
+  reference_dir: "/home/wuyuncheng/RAR/cifar/cifar-100-python/cifar100_images_train"
+  generated_dir: "outputs/recovered/cifar100"
+  output_json: "outputs/metrics/cifar100.json"
+  # Optional semantic metric: clip | dino | null
+  semantic_metric: null
+  semantic_model_dir: ""

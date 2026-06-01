@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rar-diffusion"
+version = "0.1.0"
+description = "Embedding-conditioned latent diffusion for image reconstruction"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "torch>=2.0.0",
+    "torchvision>=0.15.0",
+    "diffusers>=0.25.0",
+    "accelerate>=0.25.0",
+    "transformers>=4.36.0",
+    "numpy>=1.24.0",
+    "tqdm>=4.66.0",
+    "Pillow>=10.0.0",
+    "matplotlib>=3.7.0",
+    "PyYAML>=6.0",
+    "torchmetrics>=1.0.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
