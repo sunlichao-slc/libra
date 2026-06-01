@@ -10,7 +10,7 @@ Given only embedding queries (no access to target model parameters), LIBRA train
 
 Modern vector databases store embeddings instead of raw images. LIBRA studies whether those embeddings can still leak sensitive visual information.
 
-![LIBRA framework](docs/images/franework.png)
+![LIBRA framework](franework.png)
 
 ### Stage 1: Training
 - Query the target encoder on an auxiliary dataset to obtain image embeddings.
